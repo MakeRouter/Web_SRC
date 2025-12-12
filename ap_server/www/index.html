@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>📶 Raspberry Pi Router</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --bg:#f5f6f8;
+  --text:#111;
+  --card-bg:#fff;
+  --border:#eee;
+  --sidebar-bg:#1e1f21;
+  --sidebar-active:#2c2e31;
+  --accent:#4CAF50;
+  --btn-hover:#43a047;
+}
+
+/* 다크 모드 */
+body.dark {
+  --bg:#18191a;
+  --text:#f5f6f8;
+  --card-bg:#242526;
+  --border:#333;
+  --sidebar-bg:#101112;
+  --sidebar-active:#2a2b2d;
+  --accent:#22c55e;
+  --btn-hover:#16a34a;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; display:flex; height:100vh;
+  font-family:"Noto Sans KR",system-ui,sans-serif;
+  background:var(--bg); color:var(--text);
+}
+
+/* ───────── Sidebar ───────── */
+.sidebar{
+  width:240px; background:var(--sidebar-bg); color:#eee;
+  display:flex; flex-direction:column; justify-content:space-between;
+  transition:width .3s;
+}
+.sidebar.collapsed{width:70px}
+
+/* 로고 헤더 */
+.sidebar h2{
+  margin:0;padding:18px 0;text-align:center;color:#9ff59f;
+  border-bottom:1px solid #333;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.sidebar h2 .logo{font-size:24px;display:block}
+.sidebar h2 .title{font-size:16px;font-weight:600}
+.sidebar.collapsed h2 .title{display:none}
+.sidebar.collapsed h2 .logo{font-size:26px}
+
+/* 메뉴 리스트 */
+.sidebar ul{list-style:none;margin:0;padding:0}
+.sidebar li{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 20px;cursor:pointer;
+  border-bottom:1px solid #2c2e31;
+  transition:background .2s;
+}
+.sidebar li i{width:24px;text-align:center;flex-shrink:0;}
+.sidebar li span{flex:1;white-space:nowrap;}
+.sidebar li:hover,.sidebar li.active{background:var(--sidebar-active)}
+
+/* 접혔을 때 아이콘만 가운데 */
+.sidebar.collapsed li{
+  justify-content:center;
+  padding:14px 0;
+}
+.sidebar.collapsed li span{display:none}
+
+/* 푸터 */
+.sidebar footer{text-align:center;padding:14px;border-top:1px solid #333}
+.sidebar footer button{
+  background:#374151;color:#eee;border:none;
+  padding:6px 10px;border-radius:6px;cursor:pointer;
+}
+.sidebar footer button:hover{background:#4b5563}
+.sidebar.collapsed footer .label{display:none;}
+
+/* ───────── Main ───────── */
+.main{flex:1;padding:20px;overflow-y:auto}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+header h1{margin:0;color:var(--text);font-size:20px}
+header button{
+  background:var(--accent);border:none;color:white;
+  padding:8px 14px;border-radius:6px;cursor:pointer;
+}
+header button:hover{background:var(--btn-hover)}
+.page{display:none}
+.page.active{display:block}
+
+/* ───────── Card ───────── */
+.card{
+  background:var(--card-bg);border-radius:10px;padding:16px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.08);
+  margin-bottom:20px;border:1px solid var(--border);
+}
+.card h3{margin-top:0;color:var(--text)}
+
+/* ───────── Table ───────── */
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:10px;border-bottom:1px solid var(--border);font-size:14px}
+th{background:#f3f4f6;text-align:left;color:#374151}
+tr:hover{background:#fafafa}
+button.block{
+  padding:4px 8px;border:none;border-radius:6px;
+  background:#ef4444;color:white;cursor:pointer;
+}
+button.block:hover{background:#dc2626}
+pre{background:#f3f4f6;padding:10px;border-radius:8px;overflow-x:auto}
+
+/* ───────── Modal ───────── */
+.modal-bg{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.3);display:flex;justify-content:center;align-items:center;
+  z-index:999;visibility:hidden;opacity:0;transition:opacity .2s;
+}
+.modal-bg.show{visibility:visible;opacity:1}
+.modal{
+  background:white;padding:20px 30px;border-radius:10px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:center;
+}
+.modal button{
+  margin-top:15px;padding:6px 12px;background:var(--accent);border:none;
+  color:white;border-radius:6px;cursor:pointer;
+}
+.modal button:hover{background:var(--btn-hover)}
+
+/* ───────── Responsive ───────── */
+@media(max-width:900px){
+  .sidebar{position:fixed;z-index:10;height:100%}
+  .main{margin-left:70px}
+  .sidebar:not(.collapsed)+.main{margin-left:240px}
+}
+</style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div>
+      <h2><span class="logo">📶</span><span class="title">RPi Router</span></h2>
+      <ul>
+        <li class="active" onclick="showPage('overview')"><i>🏠</i><span>시스템 요약</span></li>
+        <li onclick="showPage('devices')"><i>🖥️</i><span>연결된 장치</span></li>
+        <li onclick="showPage('future')"><i>🧩</i><span>추가 예정</span></li>
+        <li onclick="showPage('status')"><i>📊</i><span>시스템 상태</span></li>
+        <li onclick="showPage('setting')"><i>⚙️</i><span>설정</span></li>
+      </ul>
+    </div>
+    <footer>
+      <button onclick="toggleSidebar()">
+        <span class="icon">≡</span> <span class="label">메뉴</span>
+      </button>
+      <p><small>v1.0 | admin</small></p>
+    </footer>
+
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <header>
+      <h1 id="pageTitle">시스템 요약</h1>
+      <button onclick="manualRefresh()">⟳ 새로고침</button>
+    </header>
+
+    <!-- 시스템 요약 -->
+    <section id="overview" class="page active">
+      <div class="card">
+        <h3>Wi-Fi 정보</h3>
+        <p><b>SSID:</b> <span id="ssid">-</span></p>
+        <p><b>Password:</b> <span id="password">-</span></p>
+      </div>
+      <div class="card">
+        <h3>시스템 상태</h3>
+        <p><b>CPU Temp:</b> <span id="cpu_temp">-</span></p>
+        <p><b>Uptime:</b> <span id="uptime">-</span></p>
+        <p><b>인터넷 상태:</b> <span id="internet">-</span></p>
+      </div>
+    </section>
+
+    <!-- 연결된 장치 -->
+    <section id="devices" class="page">
+      <div class="card">
+        <h3>Connected Devices</h3>
+        <table>
+          <thead><tr><th>IP</th><th>MAC</th><th>NAME</th><th>Action</th></tr></thead>
+          <tbody id="devbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 추후 추가 예정 -->
+    <section id="future" class="page">
+      <div class="card">
+        <h3>🧩 추가 기능 예정</h3>
+        <p>이 영역은 향후 확장 기능(트래픽 그래프, 장치 제어, QoS 등)을 위해 예약되어 있습니다.</p>
+      </div>
+    </section>
+
+    <!-- 시스템 상태 -->
+    <section id="status" class="page">
+      <div class="card">
+        <h3>📊 AP System Status</h3>
+        <pre id="statusbox">-</pre>
+      </div>
+    </section>
+
+    <!-- 설정 -->
+    <section id="setting" class="page">
+      <div class="card">
+        <h3>⚙️ 설정</h3>
+        <p>테마 설정:</p>
+        <label><input type="radio" name="theme" value="light" checked onchange="setTheme('light')"> 라이트 모드</label><br>
+        <label><input type="radio" name="theme" value="dark" onchange="setTheme('dark')"> 다크 모드</label>
+      </div>
+    </section>
+  </main>
+
+  <!-- 새로고침 알림 모달 -->
+  <div class="modal-bg" id="refreshModal">
+    <div class="modal">
+      <h3>🔄 새로고침 되었습니다.</h3>
+      <button onclick="closeModal()">확인</button>
+    </div>
+  </div>
+
+<script>
+let autoTimer;
+
+/* === 페이지 전환 & 사이드바 === */
+function showPage(id){
+  document.querySelectorAll('.sidebar li').forEach(li=>li.classList.remove('active'));
+  document.querySelector(`.sidebar li[onclick="showPage('${id}')"]`).classList.add('active');
+  document.querySelectorAll('.page').forEach(pg=>pg.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById("pageTitle").textContent =
+    document.querySelector(`.sidebar li[onclick="showPage('${id}')"] span`).textContent;
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+/* === 데이터 새로고침 === */
+async function refreshAll(){
+  try{
+    const info = await fetch("/info.json").then(r=>r.json());
+    document.getElementById("ssid").textContent = info.ssid || "-";
+    document.getElementById("password").textContent = info.password || "-";
+
+    const devs = await fetch("/devices.json").then(r=>r.json());
+    const devbody = document.getElementById("devbody");
+    devbody.innerHTML = "";
+    devs.forEach(d=>{
+      devbody.innerHTML += `<tr>
+        <td>${d.ip}</td><td>${d.mac}</td><td>${d.name}</td>
+        <td><button class="block" onclick="blockMac('${d.mac}')">Block</button></td>
+      </tr>`;
+    });
+
+    const stat = await fetch("/status.json").then(r=>r.json());
+    document.getElementById("cpu_temp").textContent = stat.cpu_temp || "-";
+    document.getElementById("uptime").textContent = stat.uptime || "-";
+    document.getElementById("internet").textContent = stat.internet ? "✅ Connected" : "❌ Offline";
+    document.getElementById("statusbox").textContent = JSON.stringify(stat,null,2);
+  }catch(e){
+    console.error("Error:",e);
+  }
+}
+
+/* === 수동 새로고침 === */
+async function manualRefresh(){
+  await refreshAll();
+  openModal();
+  resetAutoTimer();
+}
+
+/* === 자동 새로고침 (10초) === */
+function resetAutoTimer(){
+  clearInterval(autoTimer);
+  autoTimer = setInterval(refreshAll, 10000);
+}
+
+/* === MAC 차단 === */
+async function blockMac(mac){
+  if(!confirm(`${mac} 기기를 차단하시겠습니까?`))return;
+  await fetch(`/block?mac=${mac}`).catch(e=>console.log(e));
+  alert(mac + " 차단됨");
+}
+
+/* === 모달 === */
+function openModal(){
+  document.getElementById("refreshModal").classList.add("show");
+}
+function closeModal(){
+  document.getElementById("refreshModal").classList.remove("show");
+}
+
+/* === 테마 === */
+function setTheme(mode){
+  if(mode==='dark'){
+    document.body.classList.add('dark');
+  }else{
+    document.body.classList.remove('dark');
+  }
+}
+
+/* === 초기 === */
+refreshAll();
+resetAutoTimer();
+</script>
+</body>
+</html>
